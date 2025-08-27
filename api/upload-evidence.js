@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
       // ✅ Use node-fetch with form-data headers
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbxH-oKIj24QF7ce-LeETyqxbH9CVB0g8Gor2AIpE6caZs2hqhYPPtOCT39ktBwwQLWo0w/exec",
+        "https://script.google.com/macros/s/AKfycby-24fseO0kUnjIvQT4NME-SiYtjceKkgbW0RMRzih0RRuAflmRJnwT-2JV_pt2-8v_7g/exec",
         {
           method: "POST",
           body: formData,
