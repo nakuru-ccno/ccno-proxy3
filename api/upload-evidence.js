@@ -24,7 +24,11 @@ export default async function handler(req, res) {
     if (err) return res.status(500).json({ success: false, message: "Error parsing form data" });
 
     try {
-      const { evidenceName, category, subCounty } = fields;
+      // ✅ handle fields as arrays
+      const evidenceName = fields.evidenceName?.[0] || "";
+      const category = fields.category?.[0] || "";
+      const subCounty = fields.subCounty?.[0] || "";
+
       if (!evidenceName || !category || !subCounty) {
         return res.status(400).json({ success: false, message: "Missing required fields" });
       }
@@ -37,9 +41,11 @@ export default async function handler(req, res) {
 
       if (files) {
         for (let key in files) {
-          const file = files[key];
-          const buffer = fs.readFileSync(file.filepath);
-          formData.append("files", buffer, file.originalFilename);
+          const fileArray = Array.isArray(files[key]) ? files[key] : [files[key]];
+          for (let file of fileArray) {
+            const buffer = fs.readFileSync(file.filepath);
+            formData.append("files", buffer, file.originalFilename);
+          }
         }
       }
 
@@ -51,7 +57,14 @@ export default async function handler(req, res) {
         }
       );
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        const text = await response.text();
+        return res.status(500).json({ success: false, message: "Apps Script error", raw: text });
+      }
+
       res.status(200).json(data);
 
     } catch (error) {
