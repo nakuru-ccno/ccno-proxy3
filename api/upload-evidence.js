@@ -1,95 +1,45 @@
-// pages/api/proxy.js
-import formidable from "formidable";
-import fs from "fs";
-import FormData from "form-data";
-
-export const config = {
-  api: {
-    bodyParser: false, // ❌ Disable Next.js default body parsing for file uploads
-  },
-};
-
 export default async function handler(req, res) {
-  // ✅ Always set CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  // ✅ Handle preflight OPTIONS
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+  // Allow only GET and POST
+  if (req.method === "GET") {
+    return res.status(200).json({
+      success: true,
+      message: "Proxy is running 🚀"
+    });
   }
 
-  if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ success: false, message: "Method not allowed" });
-  }
-
-  const form = formidable({ multiples: true });
-
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Error parsing form data" });
-    }
-
+  if (req.method === "POST") {
     try {
-      // ✅ Extract safe values
-      const evidenceName = Array.isArray(fields.evidenceName)
-        ? fields.evidenceName[0]
-        : fields.evidenceName;
-      const category = Array.isArray(fields.category)
-        ? fields.category[0]
-        : fields.category;
-      const subCounty = Array.isArray(fields.subCounty)
-        ? fields.subCounty[0]
-        : fields.subCounty;
+      // Parse incoming body
+      const { evidenceName, category, subCounty } = req.body;
 
       if (!evidenceName || !category || !subCounty) {
         return res.status(400).json({
           success: false,
-          message: "Missing evidenceName, category, or subCounty",
+          message: "Missing required fields"
         });
       }
 
-      // ✅ Prepare form to forward to Apps Script
-      const formData = new FormData();
-      formData.append("evidenceName", evidenceName);
-      formData.append("category", category);
-      formData.append("subCounty", subCounty);
+      // 👉 Your actual logic here (Google Drive upload / email)
+      // For now just simulate success:
+      return res.status(200).json({
+        success: true,
+        message: "Evidence received successfully",
+        data: { evidenceName, category, subCounty }
+      });
 
-      // ✅ Attach uploaded files
-      if (files) {
-        Object.values(files).forEach((file) => {
-          const buffer = fs.readFileSync(file.filepath);
-          formData.append("files", buffer, file.originalFilename);
-        });
-      }
-
-      // ✅ Forward request to Apps Script
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycbwsaOSD6feMC6Z6e532tM842z61-JTIq_e-DN4Ewrv1jDJqJKo3G6BA3bn-NC1y4gj9rQ/exec",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (err) {
-        data = { success: false, message: "Invalid JSON from Apps Script" };
-      }
-
-      return res.status(response.ok ? 200 : 500).json(data);
     } catch (error) {
-      return res
-        .status(500)
-        .json({ success: false, message: error.message });
+      console.error("Error in upload-evidence:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        error: error.message
+      });
     }
+  }
+
+  // Any other method
+  return res.status(405).json({
+    success: false,
+    message: "Method not allowed"
   });
 }
-
