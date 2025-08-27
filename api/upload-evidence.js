@@ -1,10 +1,9 @@
-export default function handler(req, res) {
-  // Add CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*"); // Allow all origins (or replace * with your domain)
+export default async function handler(req, res) {
+  // ✅ CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*"); // Change * to your domain later
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  // Handle preflight OPTIONS request
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -18,7 +17,20 @@ export default function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      const { evidenceName, category, subCounty } = req.body;
+      // ✅ Parse body safely
+      let body = req.body;
+      if (typeof body === "string") {
+        body = JSON.parse(body);
+      }
+
+      const { evidenceName, category, subCounty } = body;
+
+      if (!evidenceName || !category || !subCounty) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields",
+        });
+      }
 
       return res.status(200).json({
         success: true,
@@ -26,9 +38,10 @@ export default function handler(req, res) {
         data: { evidenceName, category, subCounty },
       });
     } catch (error) {
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
-        message: error.message,
+        message: "Invalid JSON",
+        error: error.message,
       });
     }
   }
