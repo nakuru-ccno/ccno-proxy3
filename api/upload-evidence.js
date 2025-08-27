@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      // ✅ Extract values correctly (handle arrays from formidable)
+      // ✅ Extract values correctly
       const evidenceName = Array.isArray(fields.evidenceName) ? fields.evidenceName[0] : fields.evidenceName;
       const category = Array.isArray(fields.category) ? fields.category[0] : fields.category;
       const subCounty = Array.isArray(fields.subCounty) ? fields.subCounty[0] : fields.subCounty;
@@ -36,20 +36,30 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Missing evidenceName, category, or subCounty" });
       }
 
-      // ✅ Forward to Apps Script
+      // ✅ Prepare form data for Apps Script
       const formData = new FormData();
       formData.append("evidenceName", evidenceName);
       formData.append("category", category);
       formData.append("subCounty", subCounty);
 
+      // ✅ Handle single/multiple files safely
       if (files) {
         for (let key in files) {
-          const file = files[key];
-          const buffer = fs.readFileSync(file.filepath);
-          formData.append("files", buffer, file.originalFilename);
+          let fileGroup = files[key];
+          if (!Array.isArray(fileGroup)) {
+            fileGroup = [fileGroup]; // wrap single file into array
+          }
+
+          for (const file of fileGroup) {
+            if (file && file.filepath) {
+              const buffer = fs.readFileSync(file.filepath);
+              formData.append("files", buffer, file.originalFilename || "upload.pdf");
+            }
+          }
         }
       }
 
+      // ✅ Forward to Apps Script
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycbwsaOSD6feMC6Z6e532tM842z61-JTIq_e-DN4Ewrv1jDJqJKo3G6BA3bn-NC1y4gj9rQ/exec",
         {
