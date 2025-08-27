@@ -6,11 +6,12 @@ import FormData from "form-data";
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  // ✅ CORS headers
+  // ✅ Always set CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // ✅ Handle preflight OPTIONS
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      // ✅ Extract values correctly
+      // Extract values safely
       const evidenceName = Array.isArray(fields.evidenceName) ? fields.evidenceName[0] : fields.evidenceName;
       const category = Array.isArray(fields.category) ? fields.category[0] : fields.category;
       const subCounty = Array.isArray(fields.subCounty) ? fields.subCounty[0] : fields.subCounty;
@@ -36,30 +37,21 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Missing evidenceName, category, or subCounty" });
       }
 
-      // ✅ Prepare form data for Apps Script
+      // Prepare forward form
       const formData = new FormData();
       formData.append("evidenceName", evidenceName);
       formData.append("category", category);
       formData.append("subCounty", subCounty);
 
-      // ✅ Handle single/multiple files safely
       if (files) {
         for (let key in files) {
-          let fileGroup = files[key];
-          if (!Array.isArray(fileGroup)) {
-            fileGroup = [fileGroup]; // wrap single file into array
-          }
-
-          for (const file of fileGroup) {
-            if (file && file.filepath) {
-              const buffer = fs.readFileSync(file.filepath);
-              formData.append("files", buffer, file.originalFilename || "upload.pdf");
-            }
-          }
+          const file = files[key];
+          const buffer = fs.readFileSync(file.filepath);
+          formData.append("files", buffer, file.originalFilename);
         }
       }
 
-      // ✅ Forward to Apps Script
+      // Forward to Apps Script
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycbwsaOSD6feMC6Z6e532tM842z61-JTIq_e-DN4Ewrv1jDJqJKo3G6BA3bn-NC1y4gj9rQ/exec",
         {
