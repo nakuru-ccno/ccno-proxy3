@@ -1,3 +1,4 @@
+// pages/api/proxy.js
 import formidable from "formidable";
 import fs from "fs";
 import FormData from "form-data";
@@ -5,7 +6,7 @@ import FormData from "form-data";
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  // ✅ Allow CORS
+  // ✅ CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -21,52 +22,51 @@ export default async function handler(req, res) {
   const form = formidable({ multiples: true });
 
   form.parse(req, async (err, fields, files) => {
-    if (err) return res.status(500).json({ success: false, message: "Error parsing form data" });
+    if (err) {
+      return res.status(500).json({ success: false, message: "Error parsing form data" });
+    }
 
     try {
-      const { evidenceName, category, subCounty } = fields;
+      // ✅ Extract values correctly (handle arrays from formidable)
+      const evidenceName = Array.isArray(fields.evidenceName) ? fields.evidenceName[0] : fields.evidenceName;
+      const category = Array.isArray(fields.category) ? fields.category[0] : fields.category;
+      const subCounty = Array.isArray(fields.subCounty) ? fields.subCounty[0] : fields.subCounty;
+
       if (!evidenceName || !category || !subCounty) {
-        return res.status(400).json({ success: false, message: "Missing required fields" });
+        return res.status(400).json({ success: false, message: "Missing evidenceName, category, or subCounty" });
       }
 
-      // ✅ Build FormData for Apps Script
+      // ✅ Forward to Apps Script
       const formData = new FormData();
-      formData.append("evidenceName", evidenceName.toString());
-      formData.append("category", category.toString());
-      formData.append("subCounty", subCounty.toString());
+      formData.append("evidenceName", evidenceName);
+      formData.append("category", category);
+      formData.append("subCounty", subCounty);
 
       if (files) {
         for (let key in files) {
           const file = files[key];
-          if (Array.isArray(file)) {
-            for (const f of file) {
-              formData.append("files", fs.createReadStream(f.filepath), f.originalFilename);
-            }
-          } else {
-            formData.append("files", fs.createReadStream(file.filepath), file.originalFilename);
-          }
+          const buffer = fs.readFileSync(file.filepath);
+          formData.append("files", buffer, file.originalFilename);
         }
       }
 
-      // ✅ Use node-fetch with form-data headers
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycby-24fseO0kUnjIvQT4NME-SiYtjceKkgbW0RMRzih0RRuAflmRJnwT-2JV_pt2-8v_7g/exec",
         {
           method: "POST",
           body: formData,
-          headers: formData.getHeaders(), // 👈 Important
         }
       );
 
-      const text = await response.text();
       let data;
       try {
-        data = JSON.parse(text);
+        data = await response.json();
       } catch {
-        data = { success: false, message: text };
+        data = { success: false, message: "Invalid response from Apps Script" };
       }
 
       res.status(200).json(data);
+
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
