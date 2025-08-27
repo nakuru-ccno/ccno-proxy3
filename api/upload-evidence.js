@@ -3,7 +3,11 @@ import formidable from "formidable";
 import fs from "fs";
 import FormData from "form-data";
 
-export const config = { api: { bodyParser: false } };
+export const config = {
+  api: {
+    bodyParser: false, // ❌ Disable Next.js default body parsing for file uploads
+  },
+};
 
 export default async function handler(req, res) {
   // ✅ Always set CORS headers
@@ -17,41 +21,54 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   const form = formidable({ multiples: true });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      return res.status(500).json({ success: false, message: "Error parsing form data" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Error parsing form data" });
     }
 
     try {
-      // Extract values safely
-      const evidenceName = Array.isArray(fields.evidenceName) ? fields.evidenceName[0] : fields.evidenceName;
-      const category = Array.isArray(fields.category) ? fields.category[0] : fields.category;
-      const subCounty = Array.isArray(fields.subCounty) ? fields.subCounty[0] : fields.subCounty;
+      // ✅ Extract safe values
+      const evidenceName = Array.isArray(fields.evidenceName)
+        ? fields.evidenceName[0]
+        : fields.evidenceName;
+      const category = Array.isArray(fields.category)
+        ? fields.category[0]
+        : fields.category;
+      const subCounty = Array.isArray(fields.subCounty)
+        ? fields.subCounty[0]
+        : fields.subCounty;
 
       if (!evidenceName || !category || !subCounty) {
-        return res.status(400).json({ success: false, message: "Missing evidenceName, category, or subCounty" });
+        return res.status(400).json({
+          success: false,
+          message: "Missing evidenceName, category, or subCounty",
+        });
       }
 
-      // Prepare forward form
+      // ✅ Prepare form to forward to Apps Script
       const formData = new FormData();
       formData.append("evidenceName", evidenceName);
       formData.append("category", category);
       formData.append("subCounty", subCounty);
 
+      // ✅ Attach uploaded files
       if (files) {
-        for (let key in files) {
-          const file = files[key];
+        Object.values(files).forEach((file) => {
           const buffer = fs.readFileSync(file.filepath);
           formData.append("files", buffer, file.originalFilename);
-        }
+        });
       }
 
-      // Forward to Apps Script
+      // ✅ Forward request to Apps Script
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycbwsaOSD6feMC6Z6e532tM842z61-JTIq_e-DN4Ewrv1jDJqJKo3G6BA3bn-NC1y4gj9rQ/exec",
         {
@@ -63,14 +80,16 @@ export default async function handler(req, res) {
       let data;
       try {
         data = await response.json();
-      } catch {
-        data = { success: false, message: "Invalid response from Apps Script" };
+      } catch (err) {
+        data = { success: false, message: "Invalid JSON from Apps Script" };
       }
 
-      res.status(200).json(data);
-
+      return res.status(response.ok ? 200 : 500).json(data);
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      return res
+        .status(500)
+        .json({ success: false, message: error.message });
     }
   });
 }
+
