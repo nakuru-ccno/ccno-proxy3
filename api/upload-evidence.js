@@ -5,7 +5,7 @@ import FormData from "form-data";
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  // ✅ Allow CORS so frontend can call this proxy
+  // ✅ Allow CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -24,49 +24,49 @@ export default async function handler(req, res) {
     if (err) return res.status(500).json({ success: false, message: "Error parsing form data" });
 
     try {
-      // ✅ handle fields as arrays
-      const evidenceName = fields.evidenceName?.[0] || "";
-      const category = fields.category?.[0] || "";
-      const subCounty = fields.subCounty?.[0] || "";
-
+      const { evidenceName, category, subCounty } = fields;
       if (!evidenceName || !category || !subCounty) {
         return res.status(400).json({ success: false, message: "Missing required fields" });
       }
 
-      // ✅ Forward data to Google Apps Script
+      // ✅ Build FormData for Apps Script
       const formData = new FormData();
-      formData.append("evidenceName", evidenceName);
-      formData.append("category", category);
-      formData.append("subCounty", subCounty);
+      formData.append("evidenceName", evidenceName.toString());
+      formData.append("category", category.toString());
+      formData.append("subCounty", subCounty.toString());
 
       if (files) {
         for (let key in files) {
-          const fileArray = Array.isArray(files[key]) ? files[key] : [files[key]];
-          for (let file of fileArray) {
-            const buffer = fs.readFileSync(file.filepath);
-            formData.append("files", buffer, file.originalFilename);
+          const file = files[key];
+          if (Array.isArray(file)) {
+            for (const f of file) {
+              formData.append("files", fs.createReadStream(f.filepath), f.originalFilename);
+            }
+          } else {
+            formData.append("files", fs.createReadStream(file.filepath), file.originalFilename);
           }
         }
       }
 
+      // ✅ Use node-fetch with form-data headers
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycbxH-oKIj24QF7ce-LeETyqxbH9CVB0g8Gor2AIpE6caZs2hqhYPPtOCT39ktBwwQLWo0w/exec",
         {
           method: "POST",
           body: formData,
+          headers: formData.getHeaders(), // 👈 Important
         }
       );
 
+      const text = await response.text();
       let data;
       try {
-        data = await response.json();
+        data = JSON.parse(text);
       } catch {
-        const text = await response.text();
-        return res.status(500).json({ success: false, message: "Apps Script error", raw: text });
+        data = { success: false, message: text };
       }
 
       res.status(200).json(data);
-
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
