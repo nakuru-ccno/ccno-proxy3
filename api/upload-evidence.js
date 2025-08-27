@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       }
 
       const response = await fetch(
-        "https://script.google.com/macros/s/AKfycby-24fseO0kUnjIvQT4NME-SiYtjceKkgbW0RMRzih0RRuAflmRJnwT-2JV_pt2-8v_7g/exec",
+        "https://script.google.com/macros/s/AKfycbwsaOSD6feMC6Z6e532tM842z61-JTIq_e-DN4Ewrv1jDJqJKo3G6BA3bn-NC1y4gj9rQ/exec",
         {
           method: "POST",
           body: formData,
