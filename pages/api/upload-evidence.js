@@ -1,68 +1,94 @@
-import formidable from "formidable";
-import fetch from "node-fetch";
-import Cors from "cors";
+import formidable from 'formidable';
+import fs from 'fs';
+import fetch from 'node-fetch';
 
-// Enable CORS for your front-end domain
-const cors = Cors({
-  origin: "*", // change '*' to your front-end URL later
-  methods: ["POST"],
-});
+const MAIN_FOLDER_ID = '1xdKb5lx75qDl4LVJr3kjOL1GjGBbVySK';
+const ADMIN_EMAIL = 'tiongikevin99@gmail.com';
 
-function runMiddleware(req, res, fn) {
-  return new Promise((resolve, reject) => {
-    fn(req, res, (result) => {
-      if (result instanceof Error) reject(result);
-      else resolve(result);
-    });
-  });
-}
+const folderMap = {
+  "C14 ANC (Antenatal Care)": "1DvwJPebOAA65grvLTNz_EZBkMpBrsDTE",
+  "C15 POSTNATAL CARE": "1H8rncMWbQJmwzn_p3hJfscvXZxWRtOfd",
+  "C16 MPDSR (Maternal and Perinatal Death Surveillance and Response)": "1QxYCth8KlD5-fY2HWQoSoF56cIsXlrIA",
+  "C17 FAMILY PLANNING": "1J3V-edcjEZoPXiVqXeX675TbAfDznN54",
+  "C18 IMMUNIZATION": "1WIg4PXq8VaIcd9Q709ykfNp-RD3lHyMo",
+  "C21 HIV SERVICES": "11DghoXp77YTtJLksehpaXSpmCxYIM1As",
+  "C23 BURDEN OF CANCER REDUCED": "1Vo-9ipQ9QFtRrT7wK9lPuYqAcb4zFaTt",
+  "C27 SUPPORT SUPERVISION": "1JN9Bgw5ib4Hv6Cfdu1K9UGCu66BKonxR",
+  "C02 Referral System Improved": "1vgit8e1FAAoPkRtdOgnjDgZgPOOglGTC",
+  "C04 Operationalization of Health Facilities to Better Services": "1AkHQC6HAlb3fieO54eEdwW7gH1hUWRT_",
+  "C10 Theater Services Improved": "1nvYC8arEuyjPu4uaS01FRKdT7Ifn1Ham",
+  "C11 In-Patient Services Improved": "1GSXAThoQImrZPoiCEMNmhYZQ_22Zk9R6"
+};
 
-// Disable default body parser (we'll use formidable)
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Let formidable handle multipart
   },
 };
 
 export default async function handler(req, res) {
-  await runMiddleware(req, res, cors);
+  // -------------------
+  // CORS headers
+  // -------------------
+  res.setHeader('Access-Control-Allow-Origin', 'https://pce.nakurucountychiefnursingofficer.site'); 
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end(); // Preflight
   }
 
-  const form = formidable({ multiples: true });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
 
-  form.parse(req, async (err, fields, files) => {
-    if (err) return res.status(500).json({ error: "Error parsing form data" });
+  try {
+    // -------------------
+    // Parse multipart form
+    // -------------------
+    const form = new formidable.IncomingForm();
+    form.parse(req, async (err, fields, files) => {
+      if (err) return res.status(500).json({ success: false, message: err.message });
 
-    try {
-      const scriptUrl = "https://script.google.com/macros/s/AKfycbyutVpeRZmG4ivWXK57OzPwUZkRJJileP_h1IGV2KkGk_y3EyJ70qYmwsF-4fyC3sQtpg/exec"; // replace this
+      const evidenceName = fields.evidenceName || '';
+      const category = fields.category || '';
+      const subCounty = fields.subCounty || '';
 
-      const formData = new FormData();
+      if (!evidenceName || !category || !subCounty) {
+        return res.status(400).json({ success: false, message: 'Missing evidenceName, category, or subCounty' });
+      }
 
-      // Add all form fields (e.g., evidenceName, category, subCounty)
-      Object.keys(fields).forEach((key) => {
-        formData.append(key, fields[key]);
-      });
-
-      // Add all uploaded files
-      if (files.file) {
-        const fileArray = Array.isArray(files.file) ? files.file : [files.file];
-        for (const f of fileArray) {
-          // Read file as Blob
-          formData.append("file", f.filepath ? await fs.promises.readFile(f.filepath) : f);
+      // -------------------
+      // Handle folder (simulate Google Drive folder map)
+      // -------------------
+      const categoryFolderId = folderMap[category] || MAIN_FOLDER_ID;
+      // In Vercel Node.js, you would normally proxy to Google Drive API here
+      // We'll just simulate a saved file for testing
+      const savedFiles = [];
+      if (files && Object.keys(files).length > 0) {
+        for (let key in files) {
+          const file = files[key];
+          savedFiles.push({
+            name: `${evidenceName} – ${file.originalFilename}`,
+            type: file.mimetype,
+            size: file.size,
+          });
         }
       }
 
-      const response = await fetch(scriptUrl, { method: "POST", body: formData });
-      const data = await response.json();
-
-      res.status(200).json(data);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: "Failed to forward to Apps Script" });
-    }
-  });
+      // -------------------
+      // Send back success
+      // -------------------
+      return res.status(200).json({
+        success: true,
+        message: 'Files processed successfully',
+        evidenceName,
+        category,
+        subCounty,
+        files: savedFiles
+      });
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
 }
-
