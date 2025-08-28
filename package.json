@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "echo 'No build step required'"
+    "dev": "vercel dev"
   },
   "dependencies": {
     "form-data": "^4.0.4",
