@@ -2,6 +2,9 @@
   "name": "ccno-proxy3",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "echo 'No build required'"
+  },
   "dependencies": {
     "form-data": "^4.0.4",
     "formidable": "^3.5.4",
