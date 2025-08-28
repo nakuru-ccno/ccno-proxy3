@@ -2,9 +2,6 @@
   "name": "ccno-proxy3",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vercel dev"
-  },
   "dependencies": {
     "form-data": "^4.0.4",
     "formidable": "^3.5.4",
