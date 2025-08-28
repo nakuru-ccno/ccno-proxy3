@@ -2,13 +2,12 @@
   "name": "ccno-proxy",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
   "dependencies": {
     "form-data": "^4.0.4",
     "formidable": "^3.5.4",
     "node-fetch": "^3.3.2"
-  },
-  "scripts": {
-    "build": "echo 'No build step required'",
-    "start": "node pages/api/upload-evidence.js"
   }
 }
