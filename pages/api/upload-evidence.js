@@ -1,36 +1,41 @@
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // ❌ turn off body parser so we can forward the raw stream
   },
 };
 
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
   if (req.method === "OPTIONS") {
-    // Handle CORS preflight
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
   }
 
   if (req.method === "POST") {
     try {
-      // Forward the request to your Apps Script endpoint
       const response = await fetch(
         "https://script.google.com/macros/s/AKfycby7U1ysyohvJYxUy6FIPXEutPFepsOKMSiHrmmyTHErj3een7AxzAT6wfdx3yXgfvihIg/exec",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": req.headers["content-type"], // 👈 forward same type
           },
-          body: JSON.stringify(req.body || {}),
-          // 👇 required for Node 18+ when body is present
-          duplex: "half",
+          body: req, // 👈 forward raw request stream
+          duplex: "half", // 👈 required for streaming body
         }
       );
 
-      const data = await response.json();
-      res.setHeader("Access-Control-Allow-Origin", "*");
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text };
+      }
+
       return res.status(200).json(data);
     } catch (err) {
       return res.status(500).json({
