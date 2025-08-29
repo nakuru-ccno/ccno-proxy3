@@ -1,42 +1,32 @@
-export const config = {
-  api: { bodyParser: false },
-};
-
+// api/upload-evidence.js
 export default async function handler(req, res) {
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    return res.status(200).end();
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (req.method === "POST") {
-    try {
-      // Forward request to Google Apps Script
-      const googleScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
-
-      // Send body as stream with duplex: "half"
-      const response = await fetch(googleScriptUrl, {
+  try {
+    // Forward the body and headers to your Apps Script endpoint
+    const response = await fetch(
+      "https://script.google.com/macros/s/AKfycby7U1ysyohvJYxUy6FIPXEutPFepsOKMSiHrmmyTHErj3een7AxzAT6wfdx3yXgfvihIg/exec",
+      {
         method: "POST",
         headers: {
-          "Content-Type": req.headers["content-type"] || "application/json",
+          ...req.headers,
+          host: undefined, // avoid host header mismatch
         },
-        body: req, // forward stream directly
-        duplex: "half", // <-- CRUCIAL FIX
-      });
+        body: req,         // forward raw request body (stream)
+        duplex: "half",    // 👈 REQUIRED in Node 18+
+      }
+    );
 
-      const data = await response.text();
+    const text = await response.text();
 
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      return res.status(response.status).send(data);
-    } catch (error) {
-      return res.status(500).json({
-        error: "Proxy failed",
-        details: error.message,
-      });
-    }
+    return res.status(response.status).send(text);
+  } catch (error) {
+    console.error("Proxy failed", error);
+    return res.status(500).json({
+      error: "Proxy failed",
+      details: error.message,
+    });
   }
-
-  return res.status(405).json({ error: "Method not allowed" });
 }
