@@ -1,55 +1,40 @@
 export const config = {
   api: {
-    bodyParser: false, // must disable body parsing
+    bodyParser: false, // we handle raw streams
   },
 };
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
   if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
   }
 
   if (req.method === "POST") {
     try {
-      // Collect raw body into a buffer
-      const chunks = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      const bodyBuffer = Buffer.concat(chunks);
+      const targetUrl = process.env.APPS_SCRIPT_URL; // e.g. your script endpoint
 
-      const response = await fetch(
-        "https://script.google.com/macros/s/AKfycby7U1ysyohvJYxUy6FIPXEutPFepsOKMSiHrmmyTHErj3een7AxzAT6wfdx3yXgfvihIg/exec",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": req.headers["content-type"], // forward same type
-          },
-          body: bodyBuffer, // send collected buffer
-        }
-      );
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          ...req.headers,
+        },
+        body: req,   // forward the raw body
+        duplex: "half", // 👈 required for Node 18+ streaming
+      });
 
       const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { raw: text };
-      }
 
-      return res.status(response.status).json(data);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.status(response.status).send(text);
     } catch (err) {
-      return res.status(500).json({
-        error: "Proxy failed",
-        details: err.message,
-      });
+      console.error("Proxy failed:", err);
+      res.status(500).json({ error: "Proxy failed", details: err.message });
     }
+    return;
   }
 
-  return res.status(405).json({ error: "Method not allowed" });
+  res.status(405).json({ error: "running" });
 }
